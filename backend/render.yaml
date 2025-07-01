@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: barcode-backend
+    runtime: docker
+    plan: free
+    autoDeploy: true
