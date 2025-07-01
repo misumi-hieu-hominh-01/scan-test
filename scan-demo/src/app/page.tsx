@@ -14,7 +14,7 @@ interface BarcodeResult {
 // Function to decode barcode from captured image
 async function decodeBarcodeFromCapture(
   imageSrc: string,
-  backendUrl = "http://localhost:5002/decode-barcode"
+  backendUrl = "https://scan-test.onrender.com/decode-barcode"
 ) {
   // Convert base64 to blob
   const response = await fetch(imageSrc);
@@ -35,7 +35,7 @@ async function decodeBarcodeFromCapture(
 // Function to decode barcode from uploaded file
 async function decodeBarcodeFromFile(
   file: File,
-  backendUrl = "http://localhost:5002/decode-barcode"
+  backendUrl = "https://scan-test.onrender.com/decode-barcode"
 ) {
   const formData = new FormData();
   formData.append("image", file);
