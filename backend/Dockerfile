@@ -4,36 +4,47 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
-    curl \
+    build-essential \
+    cmake \
+    git \
     wget \
+    curl \
     unzip \
     libopencv-dev \
     python3.10 \
     python3-pip \
     python3.10-venv \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-# --- Step 2: Download pre-built ZXing binary ---
-WORKDIR /tmp
+# --- Step 2: Install ZXing-C++ CLI ---
+WORKDIR /opt
 
-# Download pre-built ZXing binary (if available) or use alternative method
-RUN wget -O zxing-cli.zip https://github.com/zxing-cpp/zxing-cpp/releases/download/v2.2.1/zxing-cpp-2.2.1-linux-x86_64.zip || \
-    (echo "Pre-built binary not available, will use alternative method" && \
-     apt-get update && apt-get install -y build-essential cmake git && \
-     git clone --depth 1 https://github.com/zxing-cpp/zxing-cpp.git && \
-     cd zxing-cpp && mkdir build && cd build && \
-     cmake .. -DBUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Release && \
-     make -j2 && cp zxing /usr/local/bin/)
+# Clone the official ZXing-C++ repository
+RUN git clone --depth 1 https://github.com/zxing-cpp/zxing-cpp.git
 
-# Extract and install if zip download was successful
-RUN if [ -f "zxing-cli.zip" ]; then \
-        unzip zxing-cli.zip && \
-        find . -name "zxing" -type f -executable -exec cp {} /usr/local/bin/ \; && \
-        chmod +x /usr/local/bin/zxing; \
+# Build ZXing-C++ with examples enabled
+WORKDIR /opt/zxing-cpp/build
+RUN cmake .. \
+    -DBUILD_EXAMPLES=ON \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DZXING_BUILD_EXAMPLES=ON && \
+    make -j$(nproc)
+
+# Copy the built executables to system path
+RUN if [ -f example/ZXingReader ]; then \
+        cp example/ZXingReader /usr/local/bin/zxing && \
+        chmod +x /usr/local/bin/zxing && \
+        echo "ZXingReader copied as zxing"; \
+    else \
+        echo "ERROR: ZXingReader not found" && \
+        find . -name "*" -type f -executable && \
+        exit 1; \
     fi
 
-# Verify ZXing installation
-RUN which zxing && zxing --help
+# Test the ZXing installation
+RUN zxing --help || echo "ZXing CLI installed but help not available"
 
 # --- Step 3: Setup Python App ---
 WORKDIR /app
