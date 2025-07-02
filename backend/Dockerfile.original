@@ -1,0 +1,66 @@
+FROM ubuntu:22.04
+
+# --- Step 1: Install dependencies ---
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    git \
+    wget \
+    curl \
+    unzip \
+    libopencv-dev \
+    python3.10 \
+    python3-pip \
+    python3.10-venv \
+    pkg-config \
+    libjpeg-dev \
+    libpng-dev \
+    libtiff-dev \
+    libgif-dev \
+    libwebp-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- Step 2: Install ZXing-C++ CLI ---
+WORKDIR /opt
+
+# Clone ZXing-C++ repository
+RUN git clone --depth 1 https://github.com/zxing-cpp/zxing-cpp.git
+
+# Create build directory
+RUN mkdir -p zxing-cpp/build
+
+# Build ZXing-C++
+WORKDIR /opt/zxing-cpp/build
+RUN cmake .. \
+    -DBUILD_EXAMPLES=ON \
+    -DBUILD_SHARED_LIBS=ON \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_CXX_STANDARD=17
+
+RUN make -j$(nproc)
+
+# Verify the binary exists and copy to /usr/local/bin
+RUN ls -la . && \
+    if [ -f "zxing" ]; then \
+        cp zxing /usr/local/bin/ && chmod +x /usr/local/bin/zxing; \
+    else \
+        echo "Error: zxing binary not found!" && exit 1; \
+    fi
+
+# Test ZXing installation
+RUN /usr/local/bin/zxing --help || echo "ZXing help command failed but binary exists"
+
+# --- Step 3: Setup Python App ---
+WORKDIR /app
+
+COPY . /app
+
+RUN pip3 install --upgrade pip && pip3 install -r requirements.txt
+
+# Expose the port
+EXPOSE 5002
+
+# --- Step 4: Run app ---
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-5002} app:app"] 
